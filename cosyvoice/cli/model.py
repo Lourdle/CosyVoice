@@ -21,6 +21,7 @@ import time
 from torch.nn import functional as F
 from contextlib import nullcontext
 import uuid
+import onnxruntime as ort
 from cosyvoice.utils.common import fade_in_out
 from cosyvoice.utils.file_utils import convert_onnx_to_trt, export_cosyvoice2_vllm
 from cosyvoice.utils.common import TrtContextWrapper
@@ -249,6 +250,7 @@ class CosyVoice2Model(CosyVoiceModel):
         self.flow = flow
         self.hift = hift
         self.fp16 = fp16
+        self.onnx = False
         if self.fp16 is True:
             self.llm.half()
             self.flow.half()
@@ -282,18 +284,38 @@ class CosyVoice2Model(CosyVoiceModel):
         self.llm.lock = threading.Lock()
         del self.llm.llm.model.model.layers
 
+    def load_onnx(self, flow_model, hift_model):
+        so = ort.SessionOptions()
+        so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        so.intra_op_num_threads = 1
+        self.flow = ort.InferenceSession(flow_model, sess_options=so,
+                                        providers=["CUDAExecutionProvider" if torch.cuda.is_available() else
+                                                "CPUExecutionProvider"])
+        self.hift = ort.InferenceSession(hift_model, sess_options=so,
+                                        providers=["CUDAExecutionProvider" if torch.cuda.is_available() else
+                                                "CPUExecutionProvider"])
+        self.onnx = True
+
     def token2wav(self, token, prompt_token, prompt_feat, embedding, token_offset, uuid, stream=False, finalize=False, speed=1.0):
-        with torch.cuda.amp.autocast(self.fp16):
-            tts_mel, _ = self.flow.inference(token=token.to(self.device),
-                                             token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
-                                             prompt_token=prompt_token.to(self.device),
-                                             prompt_token_len=torch.tensor([prompt_token.shape[1]], dtype=torch.int32).to(self.device),
-                                             prompt_feat=prompt_feat.to(self.device),
-                                             prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
-                                             embedding=embedding.to(self.device),
-                                             streaming=stream,
-                                             finalize=finalize)
-        tts_mel = tts_mel[:, :, token_offset * self.flow.token_mel_ratio:]
+        if not self.onnx:
+            with torch.cuda.amp.autocast(self.fp16):
+                tts_mel, _ = self.flow.inference(token=token.to(self.device),
+                                                    token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
+                                                    prompt_token=prompt_token.to(self.device),
+                                                    prompt_token_len=torch.tensor([prompt_token.shape[1]], dtype=torch.int32).to(self.device),
+                                                    prompt_feat=prompt_feat.to(self.device),
+                                                    prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
+                                                    embedding=embedding.to(self.device),
+                                                    streaming=stream,
+                                                    finalize=finalize)
+            tts_mel = tts_mel[:, :, token_offset * self.flow.token_mel_ratio:]
+        elif stream:
+            raise RuntimeError("Streaming inference is not supported in ONNX mode.")
+        else:
+            tts_mel = self.flow.run(None, {'token': token.cpu().numpy(),
+                                      'prompt_token': prompt_token.cpu().numpy(),
+                                      'prompt_feat': prompt_feat.to(device='cpu', dtype=torch.float16 if self.fp16 else None).numpy(),
+                                      'embedding': embedding.to(device='cpu', dtype=torch.float16 if self.fp16 else None).numpy()})[0]
         # append hift cache
         if self.hift_cache_dict[uuid] is not None:
             hift_cache_mel, hift_cache_source = self.hift_cache_dict[uuid]['mel'], self.hift_cache_dict[uuid]['source']
@@ -312,8 +334,16 @@ class CosyVoice2Model(CosyVoiceModel):
         else:
             if speed != 1.0:
                 assert self.hift_cache_dict[uuid] is None, 'speed change only support non-stream inference mode'
+                if self.onnx:
+                    tts_mel = torch.tensor(tts_mel)
                 tts_mel = F.interpolate(tts_mel, size=int(tts_mel.shape[2] / speed), mode='linear')
-            tts_speech, tts_source = self.hift.inference(speech_feat=tts_mel, cache_source=hift_cache_source)
+                if self.onnx:
+                    tts_mel = tts_mel.numpy()
+            if self.onnx:
+                tts_speech = torch.tensor(self.hift.run(None, {'speech_feat': tts_mel})[0])
+                tts_mel = torch.tensor(tts_mel)
+            else:
+                tts_speech, tts_source = self.hift.inference(speech_feat=tts_mel, cache_source=hift_cache_source)
             if self.hift_cache_dict[uuid] is not None:
                 tts_speech = fade_in_out(tts_speech, self.hift_cache_dict[uuid]['speech'], self.speech_window)
         return tts_speech
@@ -323,6 +353,8 @@ class CosyVoice2Model(CosyVoiceModel):
             llm_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
             flow_prompt_speech_token=torch.zeros(1, 0, dtype=torch.int32),
             prompt_speech_feat=torch.zeros(1, 0, 80), source_speech_token=torch.zeros(1, 0, dtype=torch.int32), stream=False, speed=1.0, **kwargs):
+        if self.onnx and stream:
+            raise RuntimeError("Streaming inference is not supported in ONNX mode.")
         # this_uuid is used to track variables related to this inference thread
         this_uuid = str(uuid.uuid1())
         with self.lock:

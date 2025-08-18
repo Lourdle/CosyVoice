@@ -141,7 +141,7 @@ class CosyVoice:
 
 class CosyVoice2(CosyVoice):
 
-    def __init__(self, model_dir, load_jit=False, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1):
+    def __init__(self, model_dir, load_jit=False, load_trt=False, load_vllm=False, fp16=False, trt_concurrent=1, load_onnx=False):
         self.instruct = True if '-Instruct' in model_dir else False
         self.model_dir = model_dir
         self.fp16 = fp16
@@ -176,6 +176,9 @@ class CosyVoice2(CosyVoice):
                                 '{}/flow.decoder.estimator.fp32.onnx'.format(model_dir),
                                 trt_concurrent,
                                 self.fp16)
+        if load_onnx:
+            self.model.load_onnx('{}/flow_{}.onnx'.format(model_dir, 'fp16' if self.fp16 is True else 'fp32'),
+                                 '{}/hift.onnx'.format(model_dir))
         del configs
 
     def inference_instruct(self, *args, **kwargs):

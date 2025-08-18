@@ -183,12 +183,16 @@ if __name__ == '__main__':
                         type=str,
                         default='pretrained_models/CosyVoice2-0.5B',
                         help='local path or modelscope repo id')
+    parser.add_argument('--use_onnx',
+                        action='store_true',
+                        default=False,
+                        help='use onnx model. Only support CosyVoice2-0.5B model. If set, will not support streaming inference.')
     args = parser.parse_args()
     try:
         cosyvoice = CosyVoice(args.model_dir)
     except Exception:
         try:
-            cosyvoice = CosyVoice2(args.model_dir)
+            cosyvoice = CosyVoice2(args.model_dir, load_onnx=args.use_onnx)
         except Exception:
             raise TypeError('no valid model_type!')
 

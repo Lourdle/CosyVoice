@@ -1,3 +1,10 @@
+This repository is a fork of the official CosyVoice2 project, **with added support for ONNX inference**.
+
+The original project did not include ONNX models for the `flow` and `hift` modules, nor provide ONNX-based inference.
+In this fork, both `flow` and `hift` have been converted to ONNX format, and the inference code now supports ONNX Runtime.
+
+You can download CosyVoice2 ONNX models from [ModelScope](https://modelscope.cn/models/Lourdle/CosyVoice2-0.5B_ONNX).
+
 [![SVG Banners](https://svg-banners.vercel.app/api?type=origin&text1=CosyVoice🤠&text2=Text-to-Speech%20💖%20Large%20Language%20Model&width=800&height=210)](https://github.com/Akshay090/svg-banners)
 
 ## 👉🏻 CosyVoice 👈🏻
@@ -139,10 +146,12 @@ import torchaudio
 
 #### CosyVoice2 Usage
 ```python
-cosyvoice = CosyVoice2('pretrained_models/CosyVoice2-0.5B', load_jit=False, load_trt=False, load_vllm=False, fp16=False)
+# To enable ONNX inference, please set load_onnx=True.
+cosyvoice = CosyVoice2('pretrained_models/CosyVoice2-0.5B', load_jit=False, load_trt=False, load_vllm=False, fp16=False, load_onnx=True)
 
 # NOTE if you want to reproduce the results on https://funaudiollm.github.io/cosyvoice2, please add text_frontend=False during inference
 # zero_shot usage
+# Note: stream=True (streaming inference) is NOT supported in ONNX mode, please always use stream=False.
 prompt_speech_16k = load_wav('./asset/zero_shot_prompt.wav', 16000)
 for i, j in enumerate(cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '希望你以后能够做的比我还好呦。', prompt_speech_16k, stream=False)):
     torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
@@ -224,6 +233,16 @@ Please see the demo website for details.
 # change iic/CosyVoice-300M-SFT for sft inference, or iic/CosyVoice-300M-Instruct for instruct inference
 python3 webui.py --port 50000 --model_dir pretrained_models/CosyVoice-300M
 ```
+
+To enable ONNX inference for CosyVoice2 models, you can add the `--use_onnx` flag:
+
+```python
+python3 webui.py --port 50000 --model_dir pretrained_models/CosyVoice2-0.5B --use_onnx
+```
+
+> **Note:**
+> - The `--use_onnx` flag is **only supported for CosyVoice2 models**.
+> - For all other model types, this flag will be ignored automatically.
 
 #### Advanced Usage
 
