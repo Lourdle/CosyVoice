@@ -1,9 +1,9 @@
-This repository is a fork of the official CosyVoice2 project, **with added support for ONNX inference**.
+This repository is a fork of the official CosyVoice2 project.
 
 The original project did not include ONNX models for the `flow` and `hift` modules, nor provide ONNX-based inference.
-In this fork, both `flow` and `hift` have been converted to ONNX format, and the inference code now supports ONNX Runtime.
+In this fork, **ONNX support for both `flow` and `hift` modules has been added** — including compatible ONNX models and inference code using ONNX Runtime.
 
-You can download CosyVoice2 ONNX models from [ModelScope](https://modelscope.cn/models/Lourdle/CosyVoice2-0.5B_ONNX).
+You can download CosyVoice2 ONNX models from [ModelScope](https://modelscope.cn/models/Lourdle/CosyVoice2-0.5B_ONNX) or [Hugging Face](https://huggingface.co/Lourdle/CosyVoice2-0.5B_ONNX).
 
 [![SVG Banners](https://svg-banners.vercel.app/api?type=origin&text1=CosyVoice🤠&text2=Text-to-Speech%20💖%20Large%20Language%20Model&width=800&height=210)](https://github.com/Akshay090/svg-banners)
 
