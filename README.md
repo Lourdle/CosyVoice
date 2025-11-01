@@ -5,6 +5,9 @@ In this fork, **ONNX support for both `flow` and `hift` modules has been added**
 
 You can download CosyVoice2 ONNX models from [ModelScope](https://modelscope.cn/models/Lourdle/CosyVoice2-0.5B_ONNX) or [Hugging Face](https://huggingface.co/Lourdle/CosyVoice2-0.5B_ONNX).
 
+I have now open-sourced the ONNX version of CosyVoice2, including the modified modules and conversion scripts needed for ONNX.
+If you want to learn how to perform the conversion, please visit [CosyVoiceForOnnx](https://github.com/Lourdle/CosyVoiceForOnnx).
+
 [![SVG Banners](https://svg-banners.vercel.app/api?type=origin&text1=CosyVoice🤠&text2=Text-to-Speech%20💖%20Large%20Language%20Model&width=800&height=210)](https://github.com/Akshay090/svg-banners)
 
 ## 👉🏻 CosyVoice 👈🏻
