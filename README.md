@@ -4,7 +4,7 @@ The original project did not include ONNX models for the `flow` and `hift` modul
 In this fork, **ONNX support for both `flow` and `hift` modules has been added** — including compatible ONNX models and inference code using ONNX Runtime.
 
 You can download CosyVoice2 ONNX models from [ModelScope](https://modelscope.cn/models/Lourdle/CosyVoice2-0.5B_ONNX) or [Hugging Face](https://huggingface.co/Lourdle/CosyVoice2-0.5B_ONNX).  
-CosyVoice3 ONNX models are only available in [ModelScope](https://modelscope.cn/models/Lourdle/Fun-CosyVoice3-0.5B-2512_ONNX) for now.
+CosyVoice3 ONNX models are also available in [ModelScope](https://modelscope.cn/models/Lourdle/Fun-CosyVoice3-0.5B-2512_ONNX) and [Hugging Face](https://huggingface.co/Lourdle/Fun-CosyVoice3-0.5B-2512_ONNX).
 
 I have now open-sourced the ONNX version of CosyVoice, including the modified modules and conversion scripts needed for ONNX.
 If you want to learn how to perform the conversion, please visit [CosyVoiceForOnnx](https://github.com/Lourdle/CosyVoiceForOnnx).
