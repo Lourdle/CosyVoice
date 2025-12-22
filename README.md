@@ -1,11 +1,12 @@
-This repository is a fork of the official CosyVoice2 project.
+This repository is a fork of the official CosyVoice project.
 
 The original project did not include ONNX models for the `flow` and `hift` modules, nor provide ONNX-based inference.
 In this fork, **ONNX support for both `flow` and `hift` modules has been added** — including compatible ONNX models and inference code using ONNX Runtime.
 
-You can download CosyVoice2 ONNX models from [ModelScope](https://modelscope.cn/models/Lourdle/CosyVoice2-0.5B_ONNX) or [Hugging Face](https://huggingface.co/Lourdle/CosyVoice2-0.5B_ONNX).
+You can download CosyVoice2 ONNX models from [ModelScope](https://modelscope.cn/models/Lourdle/CosyVoice2-0.5B_ONNX) or [Hugging Face](https://huggingface.co/Lourdle/CosyVoice2-0.5B_ONNX).  
+CosyVoice3 ONNX models are only available in [ModelScope](https://modelscope.cn/models/Lourdle/Fun-CosyVoice3-0.5B-2512_ONNX) for now.
 
-I have now open-sourced the ONNX version of CosyVoice2, including the modified modules and conversion scripts needed for ONNX.
+I have now open-sourced the ONNX version of CosyVoice, including the modified modules and conversion scripts needed for ONNX.
 If you want to learn how to perform the conversion, please visit [CosyVoiceForOnnx](https://github.com/Lourdle/CosyVoiceForOnnx).
 
 [![SVG Banners](https://svg-banners.vercel.app/api?type=origin&text1=CosyVoice🤠&text2=Text-to-Speech%20💖%20Large%20Language%20Model&width=800&height=210)](https://github.com/Akshay090/svg-banners)
@@ -155,52 +156,10 @@ pip install ttsfrd-0.4.2-cp310-cp310-linux_x86_64.whl
 
 ### Basic Usage
 
-We strongly recommend using `CosyVoice2-0.5B` for better performance.
-Follow the code below for detailed usage of each model.
-
-``` python
-import sys
-sys.path.append('third_party/Matcha-TTS')
-from cosyvoice.cli.cosyvoice import CosyVoice, CosyVoice2
-from cosyvoice.utils.file_utils import load_wav
-import torchaudio
-```
-
-#### CosyVoice2 Usage
-```python
-# To enable ONNX inference, please set load_onnx=True.
-cosyvoice = CosyVoice2('pretrained_models/CosyVoice2-0.5B', load_jit=False, load_trt=False, load_vllm=False, fp16=False, load_onnx=True)
-
-# NOTE if you want to reproduce the results on https://funaudiollm.github.io/cosyvoice2, please add text_frontend=False during inference
-# zero_shot usage
-# Note: stream=True (streaming inference) is NOT supported in ONNX mode, please always use stream=False.
-prompt_speech_16k = load_wav('./asset/zero_shot_prompt.wav', 16000)
-for i, j in enumerate(cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '希望你以后能够做的比我还好呦。', prompt_speech_16k, stream=False)):
-    torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
-
-# save zero_shot spk for future usage
-assert cosyvoice.add_zero_shot_spk('希望你以后能够做的比我还好呦。', prompt_speech_16k, 'my_zero_shot_spk') is True
-for i, j in enumerate(cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '', '', zero_shot_spk_id='my_zero_shot_spk', stream=False)):
-    torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
-cosyvoice.save_spkinfo()
-
-# fine grained control, for supported control, check cosyvoice/tokenizer/tokenizer.py#L248
-for i, j in enumerate(cosyvoice.inference_cross_lingual('在他讲述那个荒诞故事的过程中，他突然[laughter]停下来，因为他自己也被逗笑了[laughter]。', prompt_speech_16k, stream=False)):
-    torchaudio.save('fine_grained_control_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
-
-# instruct usage
-for i, j in enumerate(cosyvoice.inference_instruct2('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '用四川话说这句话', prompt_speech_16k, stream=False)):
-    torchaudio.save('instruct_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
-
-# bistream usage, you can use generator as input, this is useful when using text llm model as input
-# NOTE you should still have some basic sentence split logic because llm can not handle arbitrary sentence length
-def text_generator():
-    yield '收到好友从远方寄来的生日礼物，'
-    yield '那份意外的惊喜与深深的祝福'
-    yield '让我心中充满了甜蜜的快乐，'
-    yield '笑容如花儿般绽放。'
-for i, j in enumerate(cosyvoice.inference_zero_shot(text_generator(), '希望你以后能够做的比我还好呦。', prompt_speech_16k, stream=False)):
-    torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
+We strongly recommend using `Fun-CosyVoice3-0.5B` for better performance.
+Follow the code in `example.py` for detailed usage of each model.
+```sh
+python example.py
 ```
 
 #### CosyVoice2 vllm Usage
@@ -226,15 +185,14 @@ Please see the demo website for details.
 python3 webui.py --port 50000 --model_dir pretrained_models/CosyVoice-300M
 ```
 
-To enable ONNX inference for CosyVoice2 models, you can add the `--use_onnx` flag:
+To enable ONNX inference for CosyVoice2 or CosyVoice3, you can add the `--use_onnx` flag:
 
 ```python
 python3 webui.py --port 50000 --model_dir pretrained_models/CosyVoice2-0.5B --use_onnx
 ```
 
 > **Note:**
-> - The `--use_onnx` flag is **only supported for CosyVoice2 models**.
-> - For all other model types, this flag will be ignored automatically.
+> - The `--use_onnx` flag is **only supported for CosyVoice2 and CosyVoice3 models**.
 
 #### Advanced Usage
 
