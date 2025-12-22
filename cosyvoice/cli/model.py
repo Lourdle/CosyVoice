@@ -338,7 +338,6 @@ class CosyVoice2Model(CosyVoiceModel):
                     tts_mel = tts_mel.numpy()
             if self.onnx:
                 tts_speech = torch.tensor(self.hift.run(None, {'speech_feat': tts_mel})[0])
-                tts_mel = torch.tensor(tts_mel)
             else:
                 tts_speech, tts_source = self.hift.inference(speech_feat=tts_mel, cache_source=hift_cache_source)
             if self.hift_cache_dict[uuid] is not None:
@@ -427,6 +426,7 @@ class CosyVoice3Model(CosyVoice2Model):
         self.flow = flow
         self.hift = hift
         self.fp16 = fp16
+        self.onnx = False
         # NOTE must matching training static_chunk_size
         self.token_hop_len = 25
         # rtf and decoding related
@@ -438,28 +438,44 @@ class CosyVoice3Model(CosyVoice2Model):
         self.hift_cache_dict = {}
 
     def token2wav(self, token, prompt_token, prompt_feat, embedding, token_offset, uuid, stream=False, finalize=False, speed=1.0):
-        with torch.cuda.amp.autocast(self.fp16):
-            tts_mel, _ = self.flow.inference(token=token.to(self.device, dtype=torch.int32),
-                                             token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
-                                             prompt_token=prompt_token.to(self.device),
-                                             prompt_token_len=torch.tensor([prompt_token.shape[1]], dtype=torch.int32).to(self.device),
-                                             prompt_feat=prompt_feat.to(self.device),
-                                             prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
-                                             embedding=embedding.to(self.device),
-                                             streaming=stream,
-                                             finalize=finalize)
-            tts_mel = tts_mel[:, :, token_offset * self.flow.token_mel_ratio:]
-            # append mel cache
-            if self.hift_cache_dict[uuid] is not None:
-                hift_cache_mel = self.hift_cache_dict[uuid]['mel']
-                tts_mel = torch.concat([hift_cache_mel, tts_mel], dim=2)
-                self.hift_cache_dict[uuid]['mel'] = tts_mel
-            else:
-                self.hift_cache_dict[uuid] = {'mel': tts_mel, 'speech_offset': 0}
-            if speed != 1.0:
-                assert token_offset == 0 and finalize is True, 'speed change only support non-stream inference mode'
-                tts_mel = F.interpolate(tts_mel, size=int(tts_mel.shape[2] / speed), mode='linear')
+        if not self.onnx:
+            with torch.cuda.amp.autocast(self.fp16):
+                tts_mel, _ = self.flow.inference(token=token.to(self.device, dtype=torch.int32),
+                                                token_len=torch.tensor([token.shape[1]], dtype=torch.int32).to(self.device),
+                                                prompt_token=prompt_token.to(self.device),
+                                                prompt_token_len=torch.tensor([prompt_token.shape[1]], dtype=torch.int32).to(self.device),
+                                                prompt_feat=prompt_feat.to(self.device),
+                                                prompt_feat_len=torch.tensor([prompt_feat.shape[1]], dtype=torch.int32).to(self.device),
+                                                embedding=embedding.to(self.device),
+                                                streaming=stream,
+                                                finalize=finalize)
+                tts_mel = tts_mel[:, :, token_offset * self.flow.token_mel_ratio:]
+        elif stream:
+            raise RuntimeError("Streaming inference is not supported in ONNX mode.")
+        else:
+            tts_mel = self.flow.run(None, {'token': token.cpu().numpy(),
+                                      'prompt_token': prompt_token.cpu().numpy(),
+                                      'prompt_feat': prompt_feat.to(device='cpu', dtype=torch.float16 if self.fp16 else None).numpy(),
+                                      'embedding': embedding.to(device='cpu', dtype=torch.float16 if self.fp16 else None).numpy()})[0]
+
+        # append mel cache
+        if self.hift_cache_dict[uuid] is not None:
+            hift_cache_mel = self.hift_cache_dict[uuid]['mel']
+            tts_mel = torch.concat([hift_cache_mel, tts_mel], dim=2)
+            self.hift_cache_dict[uuid]['mel'] = tts_mel
+        else:
+            self.hift_cache_dict[uuid] = {'mel': tts_mel, 'speech_offset': 0}
+        if speed != 1.0:
+            assert token_offset == 0 and finalize is True, 'speed change only support non-stream inference mode'
+            if self.onnx:
+                tts_mel = torch.tensor(tts_mel)
+            tts_mel = F.interpolate(tts_mel, size=int(tts_mel.shape[2] / speed), mode='linear')
+            if self.onnx:
+                tts_mel = tts_mel.numpy()
+        if self.onnx:
+            tts_speech = torch.tensor(self.hift.run(None, {'speech_feat': tts_mel})[0])
+        else:
             tts_speech, _ = self.hift.inference(speech_feat=tts_mel, finalize=finalize)
-            tts_speech = tts_speech[:, self.hift_cache_dict[uuid]['speech_offset']:]
-            self.hift_cache_dict[uuid]['speech_offset'] += tts_speech.shape[1]
+        tts_speech = tts_speech[:, self.hift_cache_dict[uuid]['speech_offset']:]
+        self.hift_cache_dict[uuid]['speech_offset'] += tts_speech.shape[1]
         return tts_speech
