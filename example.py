@@ -36,10 +36,11 @@ def cosyvoice_example():
 def cosyvoice2_example():
     """ CosyVoice2 Usage, check https://funaudiollm.github.io/cosyvoice2/ for more details
     """
-    cosyvoice = AutoModel(model_dir='pretrained_models/CosyVoice2-0.5B')
+    cosyvoice = AutoModel(model_dir='pretrained_models/CosyVoice2-0.5B', load_onnx=True)
 
     # NOTE if you want to reproduce the results on https://funaudiollm.github.io/cosyvoice2, please add text_frontend=False during inference
     # zero_shot usage
+    # NOTE stream=True (streaming inference) is NOT supported in ONNX mode, please always use stream=False if load_onnx=True
     for i, j in enumerate(cosyvoice.inference_zero_shot('收到好友从远方寄来的生日礼物，那份意外的惊喜与深深的祝福让我心中充满了甜蜜的快乐，笑容如花儿般绽放。', '希望你以后能够做的比我还好呦。', './asset/zero_shot_prompt.wav')):
         torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)
 
@@ -71,8 +72,9 @@ def cosyvoice2_example():
 def cosyvoice3_example():
     """ CosyVoice3 Usage, check https://funaudiollm.github.io/cosyvoice3/ for more details
     """
-    cosyvoice = AutoModel(model_dir='pretrained_models/Fun-CosyVoice3-0.5B')
+    cosyvoice = AutoModel(model_dir='pretrained_models/Fun-CosyVoice3-0.5B', load_onnx=True)
     # zero_shot usage
+    # NOTE stream=True (streaming inference) is NOT supported in ONNX mode, please always use stream=False if load_onnx=True
     for i, j in enumerate(cosyvoice.inference_zero_shot('八百标兵奔北坡，北坡炮兵并排跑，炮兵怕把标兵碰，标兵怕碰炮兵炮。', 'You are a helpful assistant.<|endofprompt|>希望你以后能够做的比我还好呦。',
                                                         './asset/zero_shot_prompt.wav', stream=False)):
         torchaudio.save('zero_shot_{}.wav'.format(i), j['tts_speech'], cosyvoice.sample_rate)

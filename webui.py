@@ -174,7 +174,7 @@ if __name__ == '__main__':
                         default=False,
                         help='use onnx model. Only support CosyVoice2-0.5B model. If set, will not support streaming inference.')
     args = parser.parse_args()
-    cosyvoice = AutoModel(model_dir=args.model_dir)
+    cosyvoice = AutoModel(model_dir=args.model_dir, load_onnx=args.use_onnx)
 
     sft_spk = cosyvoice.list_available_spks()
     if len(sft_spk) == 0:
