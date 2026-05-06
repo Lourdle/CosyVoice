@@ -118,7 +118,7 @@ class CosyVoiceModel:
                                                      prompt_speech_token=llm_prompt_speech_token.to(self.device),
                                                      prompt_speech_token_len=torch.tensor([llm_prompt_speech_token.shape[1]], dtype=torch.int32).to(self.device),
                                                      embedding=llm_embedding.to(self.device),
-                                                     uuid=uuid)  
+                                                     uuid=uuid)
             for i in token_generator:
                 if i in self.silent_tokens:
                     cur_silent_token_num += 1
@@ -261,6 +261,10 @@ class CosyVoice2Model(CosyVoiceModel):
             self.flow.half()
         # NOTE must matching training static_chunk_size
         self.token_hop_len = 25
+        # NOTE increase token_hop_len incrementally to avoid duplicate inference
+        self.token_max_hop_len = 4 * self.token_hop_len
+        self.stream_scale_factor = 2
+        assert self.stream_scale_factor >= 1, 'stream_scale_factor should be greater than 1, change it according to your actual rtf'
         # hift cache
         self.mel_cache_len = 8
         self.source_cache_len = int(self.mel_cache_len * 480)
@@ -387,6 +391,7 @@ class CosyVoice2Model(CosyVoiceModel):
                                                      stream=stream,
                                                      finalize=False)
                     token_offset += this_token_hop_len
+                    self.token_hop_len = min(self.token_max_hop_len, self.token_hop_len * self.stream_scale_factor)
                     yield {'tts_speech': this_tts_speech.cpu()}
                 if self.llm_end_dict[this_uuid] is True and len(self.tts_speech_token_dict[this_uuid]) - token_offset < this_token_hop_len + self.flow.pre_lookahead_len:
                     break
@@ -438,6 +443,10 @@ class CosyVoice3Model(CosyVoice2Model):
         self.onnx = False
         # NOTE must matching training static_chunk_size
         self.token_hop_len = 25
+        # NOTE increase token_hop_len incrementally to avoid duplicate inference
+        self.token_max_hop_len = 4 * self.token_hop_len
+        self.stream_scale_factor = 2
+        assert self.stream_scale_factor >= 1, 'stream_scale_factor should be greater than 1, change it according to your actual rtf'
         # rtf and decoding related
         self.llm_context = torch.cuda.stream(torch.cuda.Stream(self.device)) if torch.cuda.is_available() else nullcontext()
         self.lock = threading.Lock()
